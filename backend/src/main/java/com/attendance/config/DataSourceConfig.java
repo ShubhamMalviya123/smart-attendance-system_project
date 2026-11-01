@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Primary;
 
 import javax.sql.DataSource;
 import java.net.URI;
+import java.sql.Connection;
 
 @Configuration
 public class DataSourceConfig {
@@ -25,6 +26,9 @@ public class DataSourceConfig {
     @Primary
     public DataSource dataSource() {
         HikariDataSource ds = new HikariDataSource();
+        String jdbcUrl = rawUrl;
+        String user = defaultUsername;
+        String pass = defaultPassword;
 
         if (rawUrl != null && rawUrl.startsWith("mysql://")) {
             try {
@@ -33,32 +37,38 @@ public class DataSourceConfig {
                 int port = uri.getPort() == -1 ? 3306 : uri.getPort();
                 String path = uri.getPath();
                 String query = uri.getQuery() != null ? "?" + uri.getQuery() : "?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
-
-                String jdbcUrl = "jdbc:mysql://" + host + ":" + port + path + query;
-                ds.setJdbcUrl(jdbcUrl);
-
+                jdbcUrl = "jdbc:mysql://" + host + ":" + port + path + query;
                 if (uri.getUserInfo() != null) {
                     String[] parts = uri.getUserInfo().split(":", 2);
-                    ds.setUsername(parts[0]);
+                    user = parts[0];
                     if (parts.length > 1) {
-                        ds.setPassword(parts[1]);
+                        pass = parts[1];
                     }
-                } else {
-                    ds.setUsername(defaultUsername);
-                    ds.setPassword(defaultPassword);
                 }
-            } catch (Exception e) {
-                ds.setJdbcUrl(rawUrl);
-                ds.setUsername(defaultUsername);
-                ds.setPassword(defaultPassword);
-            }
-        } else {
-            ds.setJdbcUrl(rawUrl);
-            ds.setUsername(defaultUsername);
-            ds.setPassword(defaultPassword);
+            } catch (Exception ignored) {}
         }
 
+        ds.setJdbcUrl(jdbcUrl);
+        ds.setUsername(user);
+        ds.setPassword(pass);
         ds.setDriverClassName("com.mysql.cj.jdbc.Driver");
-        return ds;
+        ds.setConnectionTimeout(3000);
+
+        try (Connection conn = ds.getConnection()) {
+            System.out.println("===> Successfully connected to MySQL database: " + jdbcUrl);
+            return ds;
+        } catch (Exception e) {
+            System.err.println("===> MySQL connection failed (" + e.getMessage() + "). Falling back to embedded H2 database (data will be saved locally in ./data/smart_attendance_db).");
+            try {
+                ds.close();
+            } catch (Exception ignored) {}
+
+            HikariDataSource h2Ds = new HikariDataSource();
+            h2Ds.setJdbcUrl("jdbc:h2:file:./data/smart_attendance_db;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE");
+            h2Ds.setDriverClassName("org.h2.Driver");
+            h2Ds.setUsername("sa");
+            h2Ds.setPassword("");
+            return h2Ds;
+        }
     }
 }
