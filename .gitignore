@@ -1,0 +1,24 @@
+# Backend
+backend/target/
+backend/*.iml
+.idea/
+
+# AI Service
+ai-service/venv/
+ai-service/__pycache__/
+*.pyc
+
+# Frontend
+frontend/node_modules/
+frontend/build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment/secrets
+.env
+backend/uploads/
+uploads/
+*.log
+*.db

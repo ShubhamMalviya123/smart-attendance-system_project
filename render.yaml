@@ -1,0 +1,43 @@
+services:
+  # Python AI Microservice
+  - type: web
+    name: smart-attendance-ai-service
+    env: docker
+    dockerContext: ai-service
+    dockerfilePath: ai-service/Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: CORS_ORIGINS
+        value: "*"
+
+  # Spring Boot Backend
+  - type: web
+    name: smart-attendance-backend
+    env: docker
+    dockerContext: backend
+    dockerfilePath: backend/Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: FRONTEND_ORIGIN
+        value: "*"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AI_SERVICE_URL
+        fromService:
+          type: web
+          name: smart-attendance-ai-service
+          property: host
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
